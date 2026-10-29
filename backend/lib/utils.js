@@ -8,6 +8,50 @@ import errs from "./error.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const parsePublicPort = (name, value, defaultValue) => {
+	if (typeof value === "undefined" || value === "") {
+		return defaultValue;
+	}
+
+	if (!/^[0-9]+$/.test(value)) {
+		throw new errs.ConfigurationError(`${name} must be a whole number between 1 and 65535`);
+	}
+
+	const port = Number(value);
+	if (!Number.isSafeInteger(port) || port < 1 || port > 65535) {
+		throw new errs.ConfigurationError(`${name} must be a whole number between 1 and 65535`);
+	}
+
+	return port;
+};
+
+/**
+ * Returns validated public listener ports and protects the admin listener from conflicts.
+ *
+ * @param   {Object} env
+ * @returns {Object}
+ */
+const getPublicPorts = (env = process.env) => {
+	const http = parsePublicPort("NPM_HTTP_PORT", env.NPM_HTTP_PORT, 80);
+	const https = parsePublicPort("NPM_HTTPS_PORT", env.NPM_HTTPS_PORT, 443);
+	const adminValue = env.NPM_ADMIN_PORT;
+	let admin = 81;
+
+	// Match 45-admin-port.sh: an invalid non-numeric admin port falls back to 81.
+	if (typeof adminValue !== "undefined" && adminValue !== "" && /^[0-9]+$/.test(adminValue)) {
+		admin = Number(adminValue);
+	}
+
+	if (http === https) {
+		throw new errs.ConfigurationError("NPM_HTTP_PORT and NPM_HTTPS_PORT must be different");
+	}
+	if (http === admin || https === admin) {
+		throw new errs.ConfigurationError("NPM_HTTP_PORT and NPM_HTTPS_PORT must differ from NPM_ADMIN_PORT");
+	}
+
+	return { http, https };
+};
+
 const exec = async (cmd, options = {}) => {
 	const { stdout, stderr } = await new Promise((resolve, reject) => {
 		const child = nodeExec(cmd, options, (isError, stdout, stderr) => {
@@ -81,11 +125,17 @@ const omitRows = (omissions) => {
 };
 
 /**
+ * @param   {Object} env
  * @returns {Object} Liquid render engine
  */
-const getRenderEngine = () => {
+const getRenderEngine = (env = process.env) => {
+	const publicPorts = getPublicPorts(env);
 	const renderEngine = new Liquid({
 		root: `${__dirname}/../templates/`,
+		globals: {
+			npm_http_port: publicPorts.http,
+			npm_https_port: publicPorts.https,
+		},
 	});
 
 	/**
@@ -104,4 +154,5 @@ const getRenderEngine = () => {
 	return renderEngine;
 };
 
-export default { exec, execFile, omitRow, omitRows, getRenderEngine };
+export { getPublicPorts };
+export default { exec, execFile, omitRow, omitRows, getPublicPorts, getRenderEngine };

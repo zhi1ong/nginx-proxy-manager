@@ -1,7 +1,7 @@
 # "You are not configured" page, which is the default if another default doesn't exist
 server {
-	listen 80;
-	listen [::]:80;
+	listen {{NPM_HTTP_PORT}};
+	listen [::]:{{NPM_HTTP_PORT}};
 
 	set $forward_scheme "http";
 	set $server "127.0.0.1";
@@ -22,8 +22,8 @@ server {
 
 # First 443 Host, which is the default if another default doesn't exist
 server {
-	listen 443 ssl;
-	listen [::]:443 ssl;
+	listen {{NPM_HTTPS_PORT}} ssl;
+	listen [::]:{{NPM_HTTPS_PORT}} ssl;
 
 	set $forward_scheme "https";
 	set $server "127.0.0.1";

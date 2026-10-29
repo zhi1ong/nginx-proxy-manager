@@ -37,6 +37,10 @@ services:
       - ./letsencrypt:/etc/letsencrypt
 ```
 
+::: info Custom public ports
+The HTTP and HTTPS listeners default to 80 and 443. To change the listeners themselves, including when using `network_mode: host`, see [Changing the public HTTP and HTTPS ports](../advanced-config/#changing-the-public-http-and-https-ports).
+:::
+
 Then:
 
 ```bash

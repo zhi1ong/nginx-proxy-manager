@@ -266,3 +266,54 @@ And you'll probably want to expose that port as well
 ```
 
 Then you'll be able to access admin UI at `http://localhost:8000`
+
+## Changing the public HTTP and HTTPS ports
+
+Nginx listens on HTTP port 80 and HTTPS port 443 by default. Set `NPM_HTTP_PORT` and `NPM_HTTPS_PORT` to change these listeners throughout NPM, including proxy hosts, redirection hosts, the default site and temporary certificate-request sites.
+
+Both values must be whole numbers from 1 to 65535. They must be different from each other and from the effective `NPM_ADMIN_PORT`. Invalid or conflicting values prevent the container from starting. Existing NPM-managed configurations in `/data/nginx` are migrated when the container starts; Stream listeners and files in `/data/nginx/custom` are not changed.
+
+For example, with Host networking:
+
+```yml
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:{{VERSION}}'
+    network_mode: host
+    environment:
+      NPM_HTTP_PORT: '8080'
+      NPM_HTTPS_PORT: '8443'
+      NPM_ADMIN_PORT: '8081'
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+```
+
+The `ports` mapping is not used with `network_mode: host`. In this example the services are available directly on the Docker host at ports 8080, 8443 and 8081.
+
+With Bridge networking, publish the same container ports that you configure:
+
+```yml
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:{{VERSION}}'
+    ports:
+      - '8080:8080'
+      - '8443:8443'
+      - '8081:8081'
+    environment:
+      NPM_HTTP_PORT: '8080'
+      NPM_HTTPS_PORT: '8443'
+      NPM_ADMIN_PORT: '8081'
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+```
+
+### Redirects and certificate validation
+
+When `NPM_HTTPS_PORT` is not 443, **Force SSL** redirects include that port. For example, `http://example.com:8080/path` redirects to `https://example.com:8443/path`. The default port 443 continues to produce redirects without an explicit port suffix.
+
+If a router or load balancer maps public HTTPS 443 to a different internal port, including the internal port in redirects may not be appropriate. Make sure the public port in the generated redirect is reachable, or use a custom redirect configuration for that NAT setup.
+
+Let's Encrypt HTTP-01 validation still requires the CA to connect to **public TCP port 80**. Forward external port 80 to `NPM_HTTP_PORT` on the NPM host, or use DNS-01 validation. Setting `NPM_HTTP_PORT` alone cannot make HTTP-01 work on a non-standard public port.
